@@ -11,7 +11,31 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Google Fonts: Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase SDKs & Config -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBoARVGRdZ6QoZE20Kd__DkVv-vEHL-se0",
+            authDomain: "u11-trainer.firebaseapp.com",
+            databaseURL: "https://u11-trainer-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "u11-trainer",
+            storageBucket: "u11-trainer.firebasestorage.app",
+            messagingSenderId: "1089809079485",
+            appId: "1:1089809079485:web:d6df33e7b6a3ef5d7febd4",
+            measurementId: "G-BG40VVSNTF"
+        };
 
+        let db = null;
+        try {
+            if (firebaseConfig.apiKey) {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+            }
+        } catch (e) {
+            console.error("Firebase Fehler:", e);
+        }
+    </script>
   <script>
     tailwind.config = {
       darkMode: 'class',
