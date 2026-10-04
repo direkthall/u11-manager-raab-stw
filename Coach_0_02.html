@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>U11-Manager - Raab/StW</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            pitch: {
+              light: '#2e7d32',
+              DEFAULT: '#1b5e20',
+              dark: '#0d3b11',
+              lines: 'rgba(255, 255, 255, 0.4)'
+            },
+            club: {
+              green: '#00875A',
+              gold: '#FFC01D',
+              darkGreen: '#004D31',
+              badgeStw: '#3b82f6',
+              badgeRaab: '#10b981'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom pitch layout & mobile touch optimizations */
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .pitch-bg {
+      background-color: #1b5e20;
+      background-image: 
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 50%, transparent 50%),
+        repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(0, 0, 0, 0.15) 40px, rgba(0, 0, 0, 0.15) 80px);
+      position: relative;
+    }
+
+    .pitch-line {
+      border: 2px solid rgba(255, 255, 255, 0.5);
+    }
+
+    /* Hide scrollbars for slick UI */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Modal Animation */
+    @keyframes modalSlideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: modalSlideUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+
+<body class="h-full flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden selection:bg-club-green selection:text-white">
+
+  <!-- Top App Bar & Header -->
+  <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 shadow-lg">
+    <div class="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-club-green flex items-center justify-center shadow-md shadow-emerald-900/30 text-white font-extrabold text-xl tracking-wider">
+          U11
+        </div>
+        <div>
+          <h1 class="font-bold text-base leading-tight text-white flex items-center gap-1.5">
+            U11-Manager
+            <span id="syncStatusBadge" class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" title="Offline / LocalStorage"></span>
+          </h1>
+          <p class="text-xs text-amber-400 font-semibold tracking-wide uppercase">SpG Raab / StW</p>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <button onclick="openSyncModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition active:scale-95 border border-slate-700">
+        <i data-lucide="cloud-cog" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- MAIN TOP NAVIGATION (Per Request: Navigation Oben!) -->
+    <nav class="max-w-md mx-auto px-2 flex border-t border-slate-800/80 bg-slate-900">
+      <button onclick="switchTab('games')" id="tab-btn-games" class="nav-tab flex-1 py-2.5 px-1 text-center font-semibold text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1.5 border-b-2 border-emerald-500 text-emerald-400 transition">
+        <i data-lucide="trophy" class="w-4 h-4"></i>
+        <span>Spiele</span>
+      </button>
+
+      <button onclick="switchTab('roster')" id="tab-btn-roster" class="nav-tab flex-1 py-2.5 px-1 text-center font-semibold text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        <i data-lucide="users" class="w-4 h-4"></i>
+        <span>Kader</span>
+      </button>
+
+      <button onclick="switchTab('stats')" id="tab-btn-stats" class="nav-tab flex-1 py-2.5 px-1 text-center font-semibold text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+        <span>Statistik & Sync</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="flex-1 max-w-md w-full mx-auto p-3 sm:p-4 pb-20 overflow-y-auto no-scrollbar">
+
+    <!-- ==================== TAB 1: KADER ==================== -->
+    <section id="view-roster" class="tab-content hidden space-y-3">
+      <div class="flex items-center justify-between bg-slate-900 p-3 rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-sm font-bold text-slate-200">Kaderliste</h2>
+          <p class="text-xs text-slate-400" id="rosterCountText">0 Spieler eingetragen</p>
+        </div>
+        <button onclick="openAddPlayerModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-900/20 active:scale-95 transition">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>Spieler +</span>
+        </button>
+      </div>
+
+      <!-- Quick Filter -->
+      <div class="flex gap-2">
+        <button onclick="filterRoster('ALL')" id="filter-all" class="roster-filter-btn flex-1 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm">Alle</button>
+        <button onclick="filterRoster('Raab')" id="filter-raab" class="roster-filter-btn flex-1 py-1.5 text-xs font-bold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">Raab</button>
+        <button onclick="filterRoster('StW')" id="filter-stw" class="roster-filter-btn flex-1 py-1.5 text-xs font-bold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">StW</button>
+      </div>
+
+      <!-- Spielerliste (Nur Name & Nummer auf der Karte, Klick öffnet Details per Popup) -->
+      <div id="rosterList" class="grid grid-cols-1 gap-2">
+        <!-- Dyn. generated -->
+      </div>
+    </section>
+
+
+    <!-- ==================== TAB 2: SPIELE ==================== -->
+    <section id="view-games" class="tab-content space-y-4">
+      <!-- Game List Header -->
+      <div class="flex items-center justify-between bg-slate-900 p-3 rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-sm font-bold text-slate-200">Spielplan & Aufstellung</h2>
+          <p class="text-xs text-slate-400">U11 Saison 2026</p>
+        </div>
+        <button onclick="openAddGameModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-900/20 active:scale-95 transition">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Spiel +</span>
+        </button>
+      </div>
+
+      <!-- Games List -->
+      <div id="gamesList" class="space-y-3">
+        <!-- Dyn. generated -->
+      </div>
+
+      <!-- SINGLE GAME TACTICS BOARD (Hidden by default, shown when editing a game) -->
+      <div id="gameDetailContainer" class="hidden space-y-4">
+        <!-- Back to list bar -->
+        <div class="flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-800">
+          <button onclick="closeGameDetail()" class="text-slate-300 hover:text-white flex items-center gap-1 text-xs font-semibold bg-slate-800 px-2.5 py-1.5 rounded-lg active:scale-95">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Zurück zur Übersicht</span>
+          </button>
+          <span id="currentGameTitleHeader" class="text-xs font-bold text-amber-400 truncate max-w-[180px]">---</span>
+        </div>
+
+        <!-- Game Header / Score Card -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 rounded-2xl border border-slate-700/60 shadow-xl space-y-3">
+          <div class="flex justify-between items-center text-xs text-slate-400">
+            <span id="gameDetailMeta">Datum / Heim/Auswärts</span>
+            <button onclick="openScoreModal()" class="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800/50">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              <span>Ergebnis & Tore</span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-center gap-4 text-center py-1">
+            <div class="flex-1 text-right">
+              <div id="homeTeamName" class="font-black text-sm text-slate-100">Raab/StW</div>
+            </div>
+            <div id="gameScoreDisplay" class="bg-slate-950 px-4 py-1.5 rounded-xl border border-slate-700 text-xl font-black text-amber-400 tracking-wider">
+              0 : 0
+            </div>
+            <div class="flex-1 text-left">
+              <div id="awayTeamName" class="font-black text-sm text-slate-100">Gegner</div>
+            </div>
+          </div>
+
+          <!-- Goalscorers preview -->
+          <div id="goalscorersSummary" class="text-xs text-slate-300 border-t border-slate-800 pt-2 flex flex-wrap gap-1 items-center">
+            <span class="text-slate-400"><i data-lucide="footprints" class="w-3 h-3 inline mr-1"></i>Tore:</span>
+            <span class="italic text-slate-400">Keine Tore eingetragen</span>
+          </div>
+        </div>
+
+        <!-- DRIFTEL TABS (0-20m, 20-40m, 40-60m) -->
+        <div class="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex gap-1">
+          <button onclick="switchPeriod(1)" id="period-btn-1" class="period-tab flex-1 py-2 text-xs font-bold rounded-xl transition bg-emerald-600 text-white shadow">
+            1. Drittel <span class="block text-[10px] opacity-80 font-normal">0-20 Min</span>
+          </button>
+          <button onclick="switchPeriod(2)" id="period-btn-2" class="period-tab flex-1 py-2 text-xs font-bold rounded-xl transition bg-slate-800 text-slate-400 hover:bg-slate-700">
+            2. Drittel <span class="block text-[10px] opacity-80 font-normal">20-40 Min</span>
+          </button>
+          <button onclick="switchPeriod(3)" id="period-btn-3" class="period-tab flex-1 py-2 text-xs font-bold rounded-xl transition bg-slate-800 text-slate-400 hover:bg-slate-700">
+            3. Drittel <span class="block text-[10px] opacity-80 font-normal">40-60 Min</span>
+          </button>
+        </div>
+
+        <!-- FORMATION SELECTION & TOOLS -->
+        <div class="flex items-center justify-between gap-2 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-300 font-semibold">Formation:</label>
+            <select id="formationSelect" onchange="changeFormation(this.value)" class="bg-slate-800 text-amber-400 text-xs font-bold py-1.5 px-2.5 rounded-lg border border-slate-700 focus:outline-none">
+              <option value="2-3-1">2 - 3 - 1 (Klassisch)</option>
+              <option value="3-2-1">3 - 2 - 1 (Defensiv)</option>
+              <option value="3-1-2">3 - 1 - 2 (Offensiv)</option>
+            </select>
+          </div>
+
+          <button onclick="openGameTimeSummaryModal()" class="bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 px-2.5 py-1.5 rounded-lg border border-amber-500/40 text-xs font-bold flex items-center gap-1 active:scale-95 transition">
+            <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+            <span>Spielzeiten</span>
+          </button>
+        </div>
+
+        <!-- PITCH BOARD (Tactical Field) -->
+        <div class="relative w-full aspect-[3/4] pitch-bg rounded-3xl border-4 border-slate-800 shadow-2xl overflow-hidden p-3 flex flex-col justify-between">
+          <!-- Pitch markings -->
+          <div class="absolute inset-2 border-2 border-white/30 rounded-xl pointer-events-none"></div>
+          <!-- Center line -->
+          <div class="absolute top-1/2 left-2 right-2 h-0.5 bg-white/30 pointer-events-none"></div>
+          <!-- Center circle -->
+          <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2 border-white/30 pointer-events-none"></div>
+          <!-- Penalty areas -->
+          <div class="absolute top-2 left-1/2 -translate-x-1/2 w-36 h-16 border-b-2 border-x-2 border-white/30 rounded-b-lg pointer-events-none"></div>
+          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-36 h-16 border-t-2 border-x-2 border-white/30 rounded-t-lg pointer-events-none"></div>
+
+          <!-- Dynamic Field Positions Grid -->
+          <div id="pitchSlots" class="relative z-10 h-full w-full flex flex-col justify-between py-2">
+            <!-- Rendered by JS based on Formation -->
+          </div>
+        </div>
+
+        <!-- SUBS SECTION FOR CURRENT PERIOD -->
+        <div class="bg-slate-900 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="arrow-left-right" class="w-4 h-4 text-emerald-400"></i>
+              <span>Auswechslungen im Drittel</span>
+            </h3>
+            <button onclick="openAddSubModal()" class="bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1 active:scale-95">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Wechsel</span>
+            </button>
+          </div>
+
+          <!-- Sub List -->
+          <div id="substitutionsList" class="space-y-1.5">
+            <!-- Dyn. rendered -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ==================== TAB 3: STATISTIK & SYNC ==================== -->
+    <section id="view-stats" class="tab-content hidden space-y-4">
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+        <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="award" class="w-4 h-4 text-amber-400"></i>
+          <span>Top Torschützen U11</span>
+        </h2>
+        <div id="topScorersList" class="space-y-2">
+          <!-- Dyn. generated -->
+        </div>
+      </div>
+
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+        <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="timer" class="w-4 h-4 text-emerald-400"></i>
+          <span>Gesamtspielzeiten Kader</span>
+        </h2>
+        <div id="topMinutesList" class="space-y-2">
+          <!-- Dyn. generated -->
+        </div>
+      </div>
+
+      <!-- Cloud Sync & Data Management Card -->
+      <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+        <h2 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-blue-400"></i>
+          <span>Daten-Synchronisation & Backup</span>
+        </h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Damit alle 4 Trainer die genau gleichen Daten haben, können Sie hier Firebase Daten eintragen oder Daten per Backup-Datei austauschen.
+        </p>
+
+        <div class="pt-2 flex flex-col gap-2">
+          <button onclick="openSyncModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 px-3 rounded-xl border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2">
+            <i data-lucide="cloud" class="w-4 h-4 text-amber-400"></i>
+            <span>Firebase Cloud Synchronisation</span>
+          </button>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="exportDataJSON()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>Export JSON</span>
+            </button>
+            <button onclick="triggerImportJSON()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 py-2 px-3 rounded-xl border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5">
+              <i data-lucide="upload" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span>Import JSON</span>
+            </button>
+            <input type="file" id="jsonFileInput" accept=".json" class="hidden" onchange="importDataJSON(event)">
+          </div>
+
+          <button onclick="resetToDefaultDataPrompt()" class="w-full mt-2 bg-red-950/40 hover:bg-red-900/50 text-red-400 py-2 px-3 rounded-xl border border-red-900/60 text-xs font-semibold flex items-center justify-center gap-1.5">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Auf U11 Standard-Daten zurücksetzen</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- ==================== MODALS / POPUPS ==================== -->
+
+  <!-- MODAL: Spieler Detail / Bearbeiten / Löschen -->
+  <div id="modalPlayerDetail" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span id="playerModalNumberBadge" class="w-8 h-8 rounded-full bg-emerald-600 text-white font-black text-sm flex items-center justify-center">0</span>
+          <h3 id="playerModalTitle" class="font-bold text-base text-white">Spieler Details</h3>
+        </div>
+        <button onclick="closeModal('modalPlayerDetail')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="playerForm" onsubmit="handleSavePlayer(event)" class="space-y-3">
+        <input type="hidden" id="playerModalId">
+        
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-1">
+            <label class="text-[11px] font-semibold text-slate-400 uppercase">Rückennr.</label>
+            <input type="number" id="playerModalNum" required min="1" max="99" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-amber-400 font-bold text-sm text-center focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="col-span-2">
+            <label class="text-[11px] font-semibold text-slate-400 uppercase">Vorname / Name</label>
+            <input type="text" id="playerModalName" required class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-sm font-semibold focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-semibold text-slate-400 uppercase">Stammverein</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <label class="flex items-center justify-center p-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-slate-300 cursor-pointer has-[:checked]:bg-emerald-950 has-[:checked]:border-emerald-500 has-[:checked]:text-emerald-400">
+              <input type="radio" name="playerClub" value="Raab" id="clubRadioRaab" class="hidden"> Raab
+            </label>
+            <label class="flex items-center justify-center p-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-slate-300 cursor-pointer has-[:checked]:bg-blue-950 has-[:checked]:border-blue-500 has-[:checked]:text-blue-400">
+              <input type="radio" name="playerClub" value="StW" id="clubRadioStw" class="hidden"> StW
+            </label>
+          </div>
+        </div>
+
+        <!-- Readonly / Stats Info -->
+        <div class="grid grid-cols-2 gap-3 pt-2 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
+          <div>
+            <span class="text-[10px] text-slate-400 block uppercase font-medium">Gesamtspielzeit</span>
+            <span id="playerModalMinutes" class="text-sm font-black text-amber-400">0 Min</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 block uppercase font-medium">Saisontore</span>
+            <span id="playerModalGoals" class="text-sm font-black text-emerald-400">0 Tore</span>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-between gap-3">
+          <button type="button" onclick="deletePlayerFromModal()" class="bg-red-950/60 text-red-400 hover:bg-red-900 border border-red-800/50 p-2.5 rounded-xl font-bold text-xs flex items-center gap-1 active:scale-95">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Löschen</span>
+          </button>
+          <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/30 active:scale-95 text-center">
+            Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Spiel Anlegen / Bearbeiten -->
+  <div id="modalAddGame" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h3 id="gameModalTitle" class="font-bold text-base text-white">Neues Spiel anlegen</h3>
+        <button onclick="closeModal('modalAddGame')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="gameForm" onsubmit="handleSaveGame(event)" class="space-y-3">
+        <input type="hidden" id="gameModalId">
+
+        <div>
+          <label class="text-[11px] font-semibold text-slate-400 uppercase">Gegner Mannschaft</label>
+          <input type="text" id="gameModalOpponent" required placeholder="z.B. Eggerding" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-sm font-semibold focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="text-[11px] font-semibold text-slate-400 uppercase">Spielort</label>
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <label class="flex items-center justify-center p-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-slate-300 cursor-pointer has-[:checked]:bg-emerald-950 has-[:checked]:border-emerald-500 has-[:checked]:text-emerald-400">
+              <input type="radio" name="gameLocation" value="Heim" id="gameLocHeim" checked class="hidden"> Heim
+            </label>
+            <label class="flex items-center justify-center p-2 rounded-xl border border-slate-700 bg-slate-800 text-xs font-bold text-slate-300 cursor-pointer has-[:checked]:bg-amber-950 has-[:checked]:border-amber-500 has-[:checked]:text-amber-400">
+              <input type="radio" name="gameLocation" value="Auswärts" id="gameLocAuswaerts" class="hidden"> Auswärts
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400 uppercase">Datum</label>
+            <input type="text" id="gameModalDate" placeholder="02.10.2026" required class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400 uppercase">Uhrzeit</label>
+            <input type="text" id="gameModalTime" placeholder="18:15" required class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-between gap-3">
+          <button type="button" id="btnDeleteGame" onclick="deleteGameFromModal()" class="hidden bg-red-950/60 text-red-400 hover:bg-red-900 border border-red-800/50 p-2.5 rounded-xl font-bold text-xs flex items-center gap-1 active:scale-95">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Spiel Löschen</span>
+          </button>
+          <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-2.5 rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/30 active:scale-95 text-center">
+            Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Spieler für Feld-Position auswählen -->
+  <div id="modalSelectPlayerForSlot" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 id="slotModalTitle" class="font-bold text-base text-white">Spieler auswählen</h3>
+          <p id="slotModalSubtitle" class="text-xs text-amber-400 font-medium">Position: ---</p>
+        </div>
+        <button onclick="closeModal('modalSelectPlayerForSlot')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Quick Action: Clear slot -->
+      <button onclick="assignPlayerToSlot(null)" class="w-full bg-slate-800 hover:bg-slate-700 text-red-400 py-2 rounded-xl text-xs font-bold border border-slate-700 flex items-center justify-center gap-1.5">
+        <i data-lucide="user-x" class="w-4 h-4"></i>
+        <span>Position leeren</span>
+      </button>
+
+      <!-- Player Selector Grid -->
+      <div id="slotPlayerSelectionList" class="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+        <!-- Dyn. generated -->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Auswechslung durchführen -->
+  <div id="modalAddSub" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 class="font-bold text-base text-white">Wechsel im Drittel</h3>
+          <p id="subModalPeriodText" class="text-xs text-emerald-400">1. Drittel (0-20 Min)</p>
+        </div>
+        <button onclick="closeModal('modalAddSub')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleSaveSub(event)" class="space-y-3">
+        <div>
+          <label class="text-[11px] font-semibold text-slate-400 uppercase">Spielminute des Wechsels</label>
+          <input type="number" id="subMinuteInput" required min="0" max="60" placeholder="z.B. 12" class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-amber-400 font-bold text-base focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div>
+          <label class="text-[11px] font-semibold text-red-400 uppercase flex items-center gap-1">
+            <i data-lucide="arrow-down-right" class="w-3.5 h-3.5"></i>
+            <span>Auswechselspieler (Geht VOM Feld)</span>
+          </label>
+          <select id="subOutPlayerSelect" required class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500">
+            <!-- Filtered to active players on pitch -->
+          </select>
+        </div>
+
+        <div>
+          <label class="text-[11px] font-semibold text-emerald-400 uppercase flex items-center gap-1">
+            <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+            <span>Einwechselspieler (Kommt AUF das Feld)</span>
+          </label>
+          <select id="subInPlayerSelect" required class="w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500">
+            <!-- Filtered to bench players -->
+          </select>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/30 active:scale-95 text-center">
+            Auswechslung Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Spielzeiten Zusammenfassung pro Spiel -->
+  <div id="modalGameTimeSummary" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 class="font-bold text-base text-white">Spielzeiten in diesem Spiel</h3>
+          <p class="text-xs text-slate-400">Berechnet aus Startaufstellung & Wechseln</p>
+        </div>
+        <button onclick="closeModal('modalGameTimeSummary')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="gameTimeSummaryList" class="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+        <!-- Dyn. rendered -->
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Ergebnis & Torschützen eintragen -->
+  <div id="modalScore" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white">Ergebnis & Torschützen</h3>
+        <button onclick="closeModal('modalScore')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleSaveScoreAndGoals(event)" class="space-y-4">
+        <!-- Score Input -->
+        <div>
+          <label class="text-[11px] font-semibold text-slate-400 uppercase text-center block mb-1">Endergebnis (Heim : Gast)</label>
+          <div class="flex items-center justify-center gap-3">
+            <input type="number" id="scoreHomeInput" min="0" max="30" value="0" class="w-16 h-12 bg-slate-800 border border-slate-700 rounded-xl text-center font-black text-xl text-amber-400 focus:outline-none focus:border-emerald-500">
+            <span class="font-black text-xl text-slate-500">:</span>
+            <input type="number" id="scoreAwayInput" min="0" max="30" value="0" class="w-16 h-12 bg-slate-800 border border-slate-700 rounded-xl text-center font-black text-xl text-amber-400 focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <!-- Goalscorers list manager -->
+        <div class="space-y-2 border-t border-slate-800 pt-3">
+          <div class="flex items-center justify-between">
+            <label class="text-[11px] font-semibold text-slate-300 uppercase">Torschützen (Kader)</label>
+            <button type="button" onclick="addScorerRow()" class="text-xs text-emerald-400 font-semibold hover:underline flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tor hinzufügen
+            </button>
+          </div>
+
+          <div id="scorersContainer" class="space-y-2">
+            <!-- Scorer Rows dynamically inserted -->
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/30 active:scale-95 text-center">
+            Ergebnis & Tore Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL: Firebase Cloud Sync setup -->
+  <div id="modalSync" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-4 animate-slide-up">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+        <div>
+          <h3 class="font-bold text-base text-white">Firebase Synchronisation</h3>
+          <p class="text-xs text-amber-400">Echtzeit-Synchronisation für alle 4 Trainer</p>
+        </div>
+        <button onclick="closeModal('modalSync')" class="text-slate-400 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Trage hier deine Firebase / Firestore Konfiguration ein. Jeder der 4 Trainer, der diesen gleichen Schlüssel eingibt, sieht Daten-Änderungen absolut synchron in Echtzeit!
+      </p>
+
+      <div class="space-y-2">
+        <label class="text-[11px] font-semibold text-slate-400 uppercase">Firebase Config (JSON)</label>
+        <textarea id="firebaseConfigInput" rows="5" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}' class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:border-emerald-500"></textarea>
+      </div>
+
+      <div class="pt-1 flex items-center justify-between gap-2">
+        <button onclick="saveFirebaseConfig()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg active:scale-95 text-center">
+          Verbinden & Speichern
+        </button>
+        <button onclick="clearFirebaseConfig()" class="bg-slate-800 hover:bg-slate-700 text-red-400 py-2.5 px-3 rounded-xl font-bold text-xs border border-slate-700 active:scale-95">
+          Trennen
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- APPLICATION SCRIPT LOGIC -->
+  <script>
+    // ==========================================
+    // 1. INITIAL DATA & DEFAULT STATE
+    // ==========================================
+    const DEFAULT_ROSTER = [
+      { id: "1", num: 1, name: "Luki", club: "Raab", minutes: 0, goals: 0 },
+      { id: "2", num: 6, name: "Raphi", club: "Raab", minutes: 0, goals: 0 },
+      { id: "3", num: 4, name: "Finn", club: "Raab", minutes: 0, goals: 0 },
+      { id: "4", num: 10, name: "Oskar", club: "Raab", minutes: 0, goals: 0 },
+      { id: "5", num: 17, name: "Jonas", club: "StW", minutes: 0, goals: 0 },
+      { id: "6", num: 7, name: "Adrian", club: "Raab", minutes: 0, goals: 0 },
+      { id: "7", num: 2, name: "Arnold", club: "Raab", minutes: 0, goals: 0 },
+      { id: "8", num: 16, name: "Ben", club: "Raab", minutes: 0, goals: 0 },
+      { id: "9", num: 5, name: "Leonhard", club: "Raab", minutes: 0, goals: 0 },
+      { id: "10", num: 21, name: "Gabriel", club: "StW", minutes: 0, goals: 0 },
+      { id: "11", num: 14, name: "Sebastian", club: "StW", minutes: 0, goals: 0 },
+      { id: "12", num: 8, name: "Phillip", club: "StW", minutes: 0, goals: 0 },
+      { id: "13", num: 3, name: "Jakob", club: "Raab", minutes: 0, goals: 0 },
+      { id: "14", num: 11, name: "David", club: "StW", minutes: 0, goals: 0 },
+      { id: "15", num: 19, name: "Laurin", club: "StW", minutes: 0, goals: 0 },
+      { id: "16", num: 18, name: "Lang", club: "StW", minutes: 0, goals: 0 },
+      { id: "17", num: 9, name: "Emil", club: "Raab", minutes: 0, goals: 0 },
+      { id: "18", num: 12, name: "Leon", club: "Raab", minutes: 0, goals: 0 },
+      { id: "19", num: 15, name: "Valentin", club: "Raab", minutes: 0, goals: 0 },
+      { id: "20", num: 22, name: "Leonas", club: "Raab", minutes: 0, goals: 0 },
+      { id: "21", num: 23, name: "Julia", club: "Raab", minutes: 0, goals: 0 }
+    ];
+
+    const DEFAULT_GAMES = [
+      { id: "g1", opponent: "Eggerding", location: "Auswärts", date: "02.10.2026", time: "18:15", scoreHome: 0, scoreAway: 0, isFinished: false, goalscorers: [], periods: createEmptyPeriods() },
+      { id: "g2", opponent: "Taufkirchen", location: "Heim", date: "06.10.2026", time: "18:15", scoreHome: 0, scoreAway: 0, isFinished: false, goalscorers: [], periods: createEmptyPeriods() },
+      { id: "g3", opponent: "Andorf", location: "Heim", date: "09.10.2026", time: "17:00", scoreHome: 0, scoreAway: 0, isFinished: false, goalscorers: [], periods: createEmptyPeriods() },
+      { id: "g4", opponent: "Schärding1", location: "Auswärts", date: "16.10.2026", time: "18:15", scoreHome: 0, scoreAway: 0, isFinished: false, goalscorers: [], periods: createEmptyPeriods() },
+      { id: "g5", opponent: "Schärding3", location: "Heim", date: "23.10.2026", time: "18:15", scoreHome: 0, scoreAway: 0, isFinished: false, goalscorers: [], periods: createEmptyPeriods() }
+    ];
+
+    function createEmptyPeriods() {
+      return {
+        1: { formation: "2-3-1", slots: { TW: null, DEF1: null, DEF2: null, MID1: null, MID2: null, MID3: null, FW: null }, subs: [] },
+        2: { formation: "2-3-1", slots: { TW: null, DEF1: null, DEF2: null, MID1: null, MID2: null, MID3: null, FW: null }, subs: [] },
+        3: { formation: "2-3-1", slots: { TW: null, DEF1: null, DEF2: null, MID1: null, MID2: null, MID3: null, FW: null }, subs: [] }
+      };
+    }
+
+    // FORMATION MAPS (Slots definition)
+    const FORMATION_SLOTS = {
+      "2-3-1": [
+        { id: "FW", label: "ST (Sturm)", row: 1 },
+        { id: "MID1", label: "LM (Links)", row: 2 },
+        { id: "MID2", label: "ZM (Mitte)", row: 2 },
+        { id: "MID3", label: "RM (Rechts)", row: 2 },
+        { id: "DEF1", label: "LIV (Abwehr)", row: 3 },
+        { id: "DEF2", label: "RIV (Abwehr)", row: 3 },
+        { id: "TW", label: "TW (Torwart)", row: 4 }
+      ],
+      "3-2-1": [
+        { id: "FW", label: "ST (Sturm)", row: 1 },
+        { id: "MID1", label: "ZM (Mittelfeld)", row: 2 },
+        { id: "MID2", label: "ZM (Mittelfeld)", row: 2 },
+        { id: "DEF1", label: "LV (Links)", row: 3 },
+        { id: "DEF2", label: "IV (Mitte)", row: 3 },
+        { id: "MID3", label: "RV (Rechts)", row: 3 },
+        { id: "TW", label: "TW (Torwart)", row: 4 }
+      ],
+      "3-1-2": [
+        { id: "MID1", label: "ST (Sturm L)", row: 1 },
+        { id: "FW", label: "ST (Sturm R)", row: 1 },
+        { id: "MID2", label: "ZM (Zentrum)", row: 2 },
+        { id: "DEF1", label: "LV (Links)", row: 3 },
+        { id: "MID3", label: "IV (Mitte)", row: 3 },
+        { id: "DEF2", label: "RV (Rechts)", row: 3 },
+        { id: "TW", label: "TW (Torwart)", row: 4 }
+      ]
+    };
+
+    // State Variables
+    let appData = {
+      roster: DEFAULT_ROSTER,
+      games: DEFAULT_GAMES
+    };
+
+    let activeTab = 'games';
+    let activeRosterFilter = 'ALL';
+    let selectedGameId = null;
+    let selectedPeriod = 1; // 1, 2, or 3
+    let selectedSlotForAssign = null;
+
+    // Firebase state
+    let firebaseConfig = null;
+    let dbRef = null;
+
+    // ==========================================
+    // 2. LIFECYCLE & STORAGE
+    // ==========================================
+    window.onload = function() {
+      loadLocalState();
+      recalculateAllStats();
+      renderAll();
+      lucide.createIcons();
+    };
+
+    function loadLocalState() {
+      const saved = localStorage.getItem('u11_manager_data_v1');
+      if (saved) {
+        try {
+          appData = JSON.parse(saved);
+        } catch(e) {
+          console.error("Localstorage parse error", e);
+        }
+      } else {
+        saveLocalState();
+      }
+
+      const savedFb = localStorage.getItem('u11_firebase_config');
+      if (savedFb) {
+        try {
+          firebaseConfig = JSON.parse(savedFb);
+          document.getElementById('firebaseConfigInput').value = savedFb;
+          initFirebase();
+        } catch(e) {}
+      }
+    }
+
+    function saveLocalState() {
+      localStorage.setItem('u11_manager_data_v1', JSON.stringify(appData));
+      if (dbRef) {
+        // Sync to cloud
+        try {
+          dbRef.set(appData);
+        } catch(e) {
+          console.error("Firebase sync write error", e);
+        }
+      }
+    }
+
+    function initFirebase() {
+      if (!firebaseConfig || typeof firebase === 'undefined') return;
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+        dbRef = firebase.database().ref('u11_manager_app');
+        dbRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val && val.roster && val.games) {
+            appData = val;
+            recalculateAllStats();
+            renderAll();
+            document.getElementById('syncStatusBadge').className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500";
+            document.getElementById('syncStatusBadge').title = "Live Cloud Sync Aktiv";
+          }
+        });
+      } catch(e) {
+        console.error("Firebase connection failed", e);
+        document.getElementById('syncStatusBadge').className = "inline-block w-2.5 h-2.5 rounded-full bg-red-500";
+      }
+    }
+
+    function saveFirebaseConfig() {
+      const txt = document.getElementById('firebaseConfigInput').value.trim();
+      if (!txt) return;
+      try {
+        const parsed = JSON.parse(txt);
+        localStorage.setItem('u11_firebase_config', txt);
+        firebaseConfig = parsed;
+        alert("Firebase Konfiguration gespeichert! Seite wird neu geladen.");
+        location.reload();
+      } catch(e) {
+        alert("Ungültiges JSON Format für Firebase Config!");
+      }
+    }
+
+    function clearFirebaseConfig() {
+      localStorage.removeItem('u11_firebase_config');
+      alert("Firebase Config getrennt. PWA nutzt nun lokalen Speicher.");
+      location.reload();
+    }
+
+
+    // ==========================================
+    // 3. STATS & PLAYTIME CALCULATION ENGINE
+    // ==========================================
+    function recalculateAllStats() {
+      // Reset all players stats
+      appData.roster.forEach(p => {
+        p.minutes = 0;
+        p.goals = 0;
+      });
+
+      // Process each game
+      appData.games.forEach(game => {
+        // Goals
+        if (game.goalscorers && Array.isArray(game.goalscorers)) {
+          game.goalscorers.forEach(gs => {
+            const player = appData.roster.find(r => r.id === gs.playerId);
+            if (player) {
+              player.goals += (parseInt(gs.count) || 0);
+            }
+          });
+        }
+
+        // Playtime in each period (1, 2, 3)
+        if (game.periods) {
+          [1, 2, 3].forEach(pNum => {
+            const period = game.periods[pNum];
+            if (!period) return;
+
+            const periodStartMin = (pNum - 1) * 20;
+            const periodEndMin = pNum * 20;
+
+            // Track active intervals for players in this 20-min period
+            // Current on-field players map: playerId -> startMinute
+            let activeOnPitch = {};
+
+            // Initial slot players start at periodStartMin
+            Object.values(period.slots || {}).forEach(pId => {
+              if (pId) {
+                activeOnPitch[pId] = periodStartMin;
+              }
+            });
+
+            // Process substitutions in chronological order
+            const sortedSubs = [...(period.subs || [])].sort((a,b) => a.minute - b.minute);
+
+            sortedSubs.forEach(sub => {
+              const subMin = Math.max(periodStartMin, Math.min(periodEndMin, parseInt(sub.minute) || periodStartMin));
+
+              // Out player finishes stint
+              if (sub.outId && activeOnPitch[sub.outId] !== undefined) {
+                const duration = subMin - activeOnPitch[sub.outId];
+                if (duration > 0) {
+                  addPlayerMinutes(sub.outId, duration);
+                }
+                delete activeOnPitch[sub.outId];
+              }
+
+              // In player starts stint
+              if (sub.inId) {
+                activeOnPitch[sub.inId] = subMin;
+              }
+            });
+
+            // End of period (at periodEndMin)
+            Object.keys(activeOnPitch).forEach(pId => {
+              const startM = activeOnPitch[pId];
+              const duration = periodEndMin - startM;
+              if (duration > 0) {
+                addPlayerMinutes(pId, duration);
+              }
+            });
+
+          });
+        }
+      });
+    }
+
+    function addPlayerMinutes(playerId, mins) {
+      const player = appData.roster.find(r => r.id === playerId);
+      if (player) {
+        player.minutes += mins;
+      }
+    }
+
+    // Get calculated stats for a specific single game
+    function calculateGameMinutesForPlayer(game, playerId) {
+      let total = 0;
+      if (!game.periods) return 0;
+
+      [1, 2, 3].forEach(pNum => {
+        const period = game.periods[pNum];
+        if (!period) return;
+
+        const periodStartMin = (pNum - 1) * 20;
+        const periodEndMin = pNum * 20;
+
+        let activeOnPitch = {};
+        Object.values(period.slots || {}).forEach(pId => {
+          if (pId) activeOnPitch[pId] = periodStartMin;
+        });
+
+        const sortedSubs = [...(period.subs || [])].sort((a,b) => a.minute - b.minute);
+
+        sortedSubs.forEach(sub => {
+          const subMin = Math.max(periodStartMin, Math.min(periodEndMin, parseInt(sub.minute) || periodStartMin));
+          if (sub.outId && activeOnPitch[sub.outId] !== undefined) {
+            if (sub.outId === playerId) {
+              total += (subMin - activeOnPitch[sub.outId]);
+            }
+            delete activeOnPitch[sub.outId];
+          }
+          if (sub.inId) {
+            activeOnPitch[sub.inId] = subMin;
+          }
+        });
+
+        if (activeOnPitch[playerId] !== undefined) {
+          total += (periodEndMin - activeOnPitch[playerId]);
+        }
+      });
+
+      return total;
+    }
+
+
+    // ==========================================
+    // 4. NAVIGATION & UI RENDERING
+    // ==========================================
+    function switchTab(tabId) {
+      activeTab = tabId;
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.classList.remove('border-emerald-500', 'text-emerald-400');
+        el.classList.add('border-transparent', 'text-slate-400');
+      });
+
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('border-transparent', 'text-slate-400');
+        activeBtn.classList.add('border-emerald-500', 'text-emerald-400');
+      }
+
+      renderAll();
+    }
+
+    function renderAll() {
+      renderRoster();
+      renderGames();
+      renderStats();
+      if (selectedGameId) {
+        renderPitchAndTactics();
+      }
+      lucide.createIcons();
+    }
+
+    // --- RENDER KADER ---
+    function filterRoster(club) {
+      activeRosterFilter = club;
+      document.querySelectorAll('.roster-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      const currentBtn = document.getElementById(`filter-${club.toLowerCase()}`);
+      if (currentBtn) {
+        currentBtn.classList.remove('bg-slate-800', 'text-slate-300');
+        currentBtn.classList.add('bg-emerald-600', 'text-white');
+      }
+      renderRoster();
+    }
+
+    function renderRoster() {
+      const container = document.getElementById('rosterList');
+      container.innerHTML = '';
+
+      let list = appData.roster.slice().sort((a,b) => a.num - b.num);
+      if (activeRosterFilter !== 'ALL') {
+        list = list.filter(p => p.club === activeRosterFilter);
+      }
+
+      document.getElementById('rosterCountText').innerText = `${list.length} Spieler (${activeRosterFilter})`;
+
+      list.forEach(player => {
+        const badgeColor = player.club === 'Raab' ? 'bg-emerald-950 border-emerald-700/60 text-emerald-400' : 'bg-blue-950 border-blue-700/60 text-blue-400';
+
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-3.5 flex items-center justify-between shadow-sm cursor-pointer active:scale-[0.98] transition";
+        card.onclick = () => openPlayerDetailModal(player.id);
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/80 font-black text-amber-400 text-sm flex items-center justify-center shadow-inner">
+              ${player.num}
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-slate-100">${player.name}</h3>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border ${badgeColor}">
+                ${player.club}
+              </span>
+            </div>
+          </div>
+          <div class="text-right flex items-center gap-2 text-slate-400">
+            <span class="text-xs font-semibold text-slate-300">${player.minutes} Min</span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // --- RENDER GAMES ---
+    function renderGames() {
+      const container = document.getElementById('gamesList');
+      container.innerHTML = '';
+
+      appData.games.forEach((game, index) => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-md space-y-3";
+
+        const locBadge = game.location === 'Heim' 
+          ? '<span class="bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-md">Heim</span>'
+          : '<span class="bg-amber-950/80 border border-amber-800 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-md">Auswärts</span>';
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-400">#${index+1}</span>
+              ${locBadge}
+              <span class="text-xs text-slate-300 font-medium"><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${game.date} • ${game.time} Uhr</span>
+            </div>
+            <button onclick="event.stopPropagation(); openAddGameModal('${game.id}')" class="text-slate-400 hover:text-white p-1">
+              <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <div>
+              <div class="text-xs text-slate-400 font-medium">Gegner</div>
+              <div class="font-extrabold text-base text-white tracking-wide">${game.opponent}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[10px] text-slate-400 font-medium uppercase">Ergebnis</div>
+              <div class="font-black text-lg text-amber-400">${game.scoreHome} : ${game.scoreAway}</div>
+            </div>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button onclick="openGameTactics('${game.id}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow shadow-emerald-950 active:scale-98 transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Aufstellung & Drittel Planen</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+
+    // ==========================================
+    // 5. TACTICS BOARD & FIELD ENGINE
+    // ==========================================
+    function openGameTactics(gameId) {
+      selectedGameId = gameId;
+      selectedPeriod = 1;
+      document.getElementById('gamesList').classList.add('hidden');
+      document.getElementById('gameDetailContainer').classList.remove('hidden');
+
+      const game = appData.games.find(g => g.id === gameId);
+      if (game) {
+        document.getElementById('currentGameTitleHeader').innerText = `vs. ${game.opponent}`;
+        document.getElementById('gameDetailMeta').innerText = `${game.date} (${game.location})`;
+        document.getElementById('homeTeamName').innerText = game.location === 'Heim' ? 'Raab/StW' : game.opponent;
+        document.getElementById('awayTeamName').innerText = game.location === 'Heim' ? game.opponent : 'Raab/StW';
+        document.getElementById('gameScoreDisplay').innerText = `${game.scoreHome} : ${game.scoreAway}`;
+
+        // Scorers
+        const scorersBox = document.getElementById('goalscorersSummary');
+        if (game.goalscorers && game.goalscorers.length > 0) {
+          const names = game.goalscorers.map(s => {
+            const p = appData.roster.find(r => r.id === s.playerId);
+            return p ? `${p.name} (${s.count}x)` : '';
+          }).filter(Boolean).join(', ');
+          scorersBox.innerHTML = `<span class="text-slate-400"><i data-lucide="footprints" class="w-3 h-3 inline mr-1 text-emerald-400"></i>Tore:</span> <span class="font-bold text-amber-300">${names}</span>`;
+        } else {
+          scorersBox.innerHTML = `<span class="text-slate-400"><i data-lucide="footprints" class="w-3 h-3 inline mr-1"></i>Tore:</span> <span class="italic text-slate-500">Keine Tore eingetragen</span>`;
+        }
+
+        // Formation select
+        const currentPeriodData = game.periods[selectedPeriod];
+        document.getElementById('formationSelect').value = currentPeriodData.formation || "2-3-1";
+      }
+
+      renderPitchAndTactics();
+      lucide.createIcons();
+    }
+
+    function closeGameDetail() {
+      selectedGameId = null;
+      document.getElementById('gameDetailContainer').classList.add('hidden');
+      document.getElementById('gamesList').classList.remove('hidden');
+    }
+
+    function switchPeriod(pNum) {
+      selectedPeriod = pNum;
+      document.querySelectorAll('.period-tab').forEach((btn, i) => {
+        if (i + 1 === pNum) {
+          btn.classList.remove('bg-slate-800', 'text-slate-400');
+          btn.classList.add('bg-emerald-600', 'text-white', 'shadow');
+        } else {
+          btn.classList.remove('bg-emerald-600', 'text-white', 'shadow');
+          btn.classList.add('bg-slate-800', 'text-slate-400');
+        }
+      });
+
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (game) {
+        document.getElementById('formationSelect').value = game.periods[selectedPeriod].formation || "2-3-1";
+      }
+
+      renderPitchAndTactics();
+    }
+
+    function changeFormation(newForm) {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (game) {
+        game.periods[selectedPeriod].formation = newForm;
+        saveLocalState();
+        renderPitchAndTactics();
+      }
+    }
+
+    function renderPitchAndTactics() {
+      const pitchSlotsContainer = document.getElementById('pitchSlots');
+      pitchSlotsContainer.innerHTML = '';
+
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      const periodData = game.periods[selectedPeriod];
+      const formationKey = periodData.formation || "2-3-1";
+      const slotsDef = FORMATION_SLOTS[formationKey];
+
+      // Group slots by row (1 to 4)
+      const rows = { 1: [], 2: [], 3: [], 4: [] };
+      slotsDef.forEach(s => rows[s.row].push(s));
+
+      Object.keys(rows).forEach(rowNum => {
+        const rowSlots = rows[rowNum];
+        const rowDiv = document.createElement('div');
+        rowDiv.className = "flex items-center justify-around w-full";
+
+        rowSlots.forEach(slot => {
+          const playerId = periodData.slots[slot.id];
+          const player = appData.roster.find(r => r.id === playerId);
+
+          const slotBtn = document.createElement('div');
+          slotBtn.onclick = () => openSlotPlayerModal(slot.id, slot.label);
+          slotBtn.className = "flex flex-col items-center justify-center cursor-pointer active:scale-95 transition group";
+
+          if (player) {
+            slotBtn.innerHTML = `
+              <div class="w-11 h-11 rounded-full ${slot.id === 'TW' ? 'bg-amber-500 border-2 border-amber-300' : 'bg-slate-900 border-2 border-emerald-400'} text-white shadow-lg flex items-center justify-center font-black text-sm relative">
+                ${player.num}
+                <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${player.club === 'Raab' ? 'bg-emerald-500' : 'bg-blue-500'} border border-white"></span>
+              </div>
+              <span class="mt-1 bg-slate-950/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md border border-slate-700/80 shadow truncate max-w-[70px]">
+                ${player.name}
+              </span>
+            `;
+          } else {
+            slotBtn.innerHTML = `
+              <div class="w-11 h-11 rounded-full bg-slate-900/80 border-2 border-dashed border-white/60 text-white/70 flex items-center justify-center font-bold text-xs group-hover:border-amber-400 group-hover:text-amber-400">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+              </div>
+              <span class="mt-1 bg-slate-900/80 text-slate-300 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-slate-700/60">
+                ${slot.label.split(' ')[0]}
+              </span>
+            `;
+          }
+
+          rowDiv.appendChild(slotBtn);
+        });
+
+        pitchSlotsContainer.appendChild(rowDiv);
+      });
+
+      // Render Period Substitutions
+      renderSubstitutionsList(periodData.subs || []);
+      lucide.createIcons();
+    }
+
+    function renderSubstitutionsList(subs) {
+      const container = document.getElementById('substitutionsList');
+      container.innerHTML = '';
+
+      if (subs.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 italic py-1 text-center">Keine Wechsel in diesem Drittel</div>`;
+        return;
+      }
+
+      const sorted = [...subs].sort((a,b) => a.minute - b.minute);
+      sorted.forEach((sub, idx) => {
+        const outP = appData.roster.find(r => r.id === sub.outId);
+        const inP = appData.roster.find(r => r.id === sub.inId);
+
+        const item = document.createElement('div');
+        item.className = "bg-slate-800/80 border border-slate-700/60 rounded-xl p-2 flex items-center justify-between text-xs";
+        item.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="bg-amber-500/20 text-amber-300 font-extrabold px-2 py-0.5 rounded-md border border-amber-500/30">
+              ${sub.minute}' Min
+            </span>
+            <div class="flex items-center gap-1">
+              <span class="text-red-400 font-bold">#${outP ? outP.num : '?'} ${outP ? outP.name : ''}</span>
+              <i data-lucide="arrow-right" class="w-3 h-3 text-slate-400"></i>
+              <span class="text-emerald-400 font-bold">#${inP ? inP.num : '?'} ${inP ? inP.name : ''}</span>
+            </div>
+          </div>
+          <button onclick="deleteSub(${idx})" class="text-slate-500 hover:text-red-400 p-1">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+
+    // ==========================================
+    // 6. MODALS HANDLERS & FORMS
+    // ==========================================
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // --- PLAYER MODAL ---
+    function openAddPlayerModal() {
+      document.getElementById('playerModalTitle').innerText = "Neuen Spieler anlegen";
+      document.getElementById('playerModalId').value = "";
+      document.getElementById('playerModalNum').value = "";
+      document.getElementById('playerModalName').value = "";
+      document.getElementById('clubRadioRaab').checked = true;
+      document.getElementById('playerModalMinutes').innerText = "0 Min";
+      document.getElementById('playerModalGoals').innerText = "0 Tore";
+      document.getElementById('modalPlayerDetail').classList.remove('hidden');
+    }
+
+    function openPlayerDetailModal(id) {
+      const player = appData.roster.find(r => r.id === id);
+      if (!player) return;
+
+      document.getElementById('playerModalTitle').innerText = "Spieler bearbeiten";
+      document.getElementById('playerModalId').value = player.id;
+      document.getElementById('playerModalNum').value = player.num;
+      document.getElementById('playerModalNumberBadge').innerText = player.num;
+      document.getElementById('playerModalName').value = player.name;
+      if (player.club === 'Raab') document.getElementById('clubRadioRaab').checked = true;
+      else document.getElementById('clubRadioStw').checked = true;
+
+      document.getElementById('playerModalMinutes').innerText = `${player.minutes} Min`;
+      document.getElementById('playerModalGoals').innerText = `${player.goals} Tore`;
+
+      document.getElementById('modalPlayerDetail').classList.remove('hidden');
+    }
+
+    function handleSavePlayer(e) {
+      e.preventDefault();
+      const id = document.getElementById('playerModalId').value;
+      const num = parseInt(document.getElementById('playerModalNum').value);
+      const name = document.getElementById('playerModalName').value.trim();
+      const club = document.querySelector('input[name="playerClub"]:checked').value;
+
+      if (id) {
+        const p = appData.roster.find(r => r.id === id);
+        if (p) {
+          p.num = num;
+          p.name = name;
+          p.club = club;
+        }
+      } else {
+        appData.roster.push({
+          id: 'p_' + Date.now(),
+          num,
+          name,
+          club,
+          minutes: 0,
+          goals: 0
+        });
+      }
+
+      saveLocalState();
+      closeModal('modalPlayerDetail');
+      renderAll();
+    }
+
+    function deletePlayerFromModal() {
+      const id = document.getElementById('playerModalId').value;
+      if (!id) return;
+      if (confirm("Spieler wirklich aus dem Kader löschen?")) {
+        appData.roster = appData.roster.filter(p => p.id !== id);
+        saveLocalState();
+        closeModal('modalPlayerDetail');
+        renderAll();
+      }
+    }
+
+    // --- GAME MODAL ---
+    function openAddGameModal(id = null) {
+      if (id) {
+        const game = appData.games.find(g => g.id === id);
+        if (!game) return;
+        document.getElementById('gameModalTitle').innerText = "Spiel bearbeiten";
+        document.getElementById('gameModalId').value = game.id;
+        document.getElementById('gameModalOpponent').value = game.opponent;
+        document.getElementById('gameModalDate').value = game.date;
+        document.getElementById('gameModalTime').value = game.time;
+        if (game.location === 'Heim') document.getElementById('gameLocHeim').checked = true;
+        else document.getElementById('gameLocAuswaerts').checked = true;
+        document.getElementById('btnDeleteGame').classList.remove('hidden');
+      } else {
+        document.getElementById('gameModalTitle').innerText = "Neues Spiel anlegen";
+        document.getElementById('gameModalId').value = "";
+        document.getElementById('gameModalOpponent').value = "";
+        document.getElementById('gameModalDate').value = "";
+        document.getElementById('gameModalTime').value = "";
+        document.getElementById('gameLocHeim').checked = true;
+        document.getElementById('btnDeleteGame').classList.add('hidden');
+      }
+      document.getElementById('modalAddGame').classList.remove('hidden');
+    }
+
+    function handleSaveGame(e) {
+      e.preventDefault();
+      const id = document.getElementById('gameModalId').value;
+      const opponent = document.getElementById('gameModalOpponent').value.trim();
+      const location = document.querySelector('input[name="gameLocation"]:checked').value;
+      const date = document.getElementById('gameModalDate').value.trim();
+      const time = document.getElementById('gameModalTime').value.trim();
+
+      if (id) {
+        const g = appData.games.find(x => x.id === id);
+        if (g) {
+          g.opponent = opponent;
+          g.location = location;
+          g.date = date;
+          g.time = time;
+        }
+      } else {
+        appData.games.push({
+          id: 'g_' + Date.now(),
+          opponent,
+          location,
+          date,
+          time,
+          scoreHome: 0,
+          scoreAway: 0,
+          isFinished: false,
+          goalscorers: [],
+          periods: createEmptyPeriods()
+        });
+      }
+
+      saveLocalState();
+      closeModal('modalAddGame');
+      renderAll();
+    }
+
+    function deleteGameFromModal() {
+      const id = document.getElementById('gameModalId').value;
+      if (!id) return;
+      if (confirm("Spiel wirklich löschen?")) {
+        appData.games = appData.games.filter(g => g.id !== id);
+        saveLocalState();
+        closeModal('modalAddGame');
+        if (selectedGameId === id) closeGameDetail();
+        renderAll();
+      }
+    }
+
+    // --- SLOT ASSIGNMENT MODAL ---
+    function openSlotPlayerModal(slotId, slotLabel) {
+      selectedSlotForAssign = slotId;
+      document.getElementById('slotModalSubtitle').innerText = `Position: ${slotLabel}`;
+
+      const container = document.getElementById('slotPlayerSelectionList');
+      container.innerHTML = '';
+
+      const game = appData.games.find(g => g.id === selectedGameId);
+      const periodData = game.periods[selectedPeriod];
+
+      // Get list of already assigned players in THIS period
+      const assignedPlayerIds = Object.values(periodData.slots || {}).filter(Boolean);
+
+      const sortedRoster = [...appData.roster].sort((a,b) => a.num - b.num);
+
+      sortedRoster.forEach(player => {
+        const isAssigned = assignedPlayerIds.includes(player.id);
+        const isCurrentSlot = periodData.slots[slotId] === player.id;
+
+        const row = document.createElement('div');
+        row.className = `p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition ${isCurrentSlot ? 'bg-emerald-950/80 border-emerald-500' : isAssigned ? 'bg-slate-900/40 border-slate-800 opacity-50' : 'bg-slate-800 border-slate-700 hover:bg-slate-700'}`;
+        
+        row.onclick = () => assignPlayerToSlot(player.id);
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-xl bg-slate-900 font-black text-amber-400 text-xs flex items-center justify-center border border-slate-700">
+              ${player.num}
+            </span>
+            <div>
+              <div class="font-bold text-xs text-white">${player.name}</div>
+              <div class="text-[10px] text-slate-400">${player.club}</div>
+            </div>
+          </div>
+          ${isCurrentSlot ? '<span class="text-xs font-bold text-emerald-400">Aktuell auf Pos</span>' : isAssigned ? '<span class="text-[10px] text-slate-500">Auf anderer Pos</span>' : ''}
+        `;
+
+        container.appendChild(row);
+      });
+
+      document.getElementById('modalSelectPlayerForSlot').classList.remove('hidden');
+    }
+
+    function assignPlayerToSlot(playerId) {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      const periodData = game.periods[selectedPeriod];
+
+      // If player assigned elsewhere in this period, clear old slot
+      if (playerId) {
+        Object.keys(periodData.slots).forEach(sKey => {
+          if (periodData.slots[sKey] === playerId) {
+            periodData.slots[sKey] = null;
+          }
+        });
+      }
+
+      periodData.slots[selectedSlotForAssign] = playerId;
+
+      recalculateAllStats();
+      saveLocalState();
+      closeModal('modalSelectPlayerForSlot');
+      renderPitchAndTactics();
+    }
+
+    // --- SUBS MODAL ---
+    function openAddSubModal() {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      const periodData = game.periods[selectedPeriod];
+      const startMin = (selectedPeriod - 1) * 20;
+      const endMin = selectedPeriod * 20;
+
+      document.getElementById('subModalPeriodText').innerText = `${selectedPeriod}. Drittel (${startMin}-${endMin} Min)`;
+      document.getElementById('subMinuteInput').value = startMin + 10;
+      document.getElementById('subMinuteInput').min = startMin;
+      document.getElementById('subMinuteInput').max = endMin;
+
+      // Filter OUT players (players currently on pitch)
+      const onPitchIds = Object.values(periodData.slots || {}).filter(Boolean);
+      const outSelect = document.getElementById('subOutPlayerSelect');
+      outSelect.innerHTML = '';
+
+      onPitchIds.forEach(pId => {
+        const p = appData.roster.find(r => r.id === pId);
+        if (p) {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.innerText = `#${p.num} ${p.name} (${p.club})`;
+          outSelect.appendChild(opt);
+        }
+      });
+
+      // Filter IN players (players on bench)
+      const inSelect = document.getElementById('subInPlayerSelect');
+      inSelect.innerHTML = '';
+
+      const benchPlayers = appData.roster.filter(r => !onPitchIds.includes(r.id)).sort((a,b) => a.num - b.num);
+      benchPlayers.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.innerText = `#${p.num} ${p.name} (${p.club})`;
+        inSelect.appendChild(opt);
+      });
+
+      document.getElementById('modalAddSub').classList.remove('hidden');
+    }
+
+    function handleSaveSub(e) {
+      e.preventDefault();
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      const minute = parseInt(document.getElementById('subMinuteInput').value);
+      const outId = document.getElementById('subOutPlayerSelect').value;
+      const inId = document.getElementById('subInPlayerSelect').value;
+
+      if (!outId || !inId) {
+        alert("Bitte Aus- und Einwechselspieler auswählen!");
+        return;
+      }
+
+      game.periods[selectedPeriod].subs.push({
+        minute,
+        outId,
+        inId
+      });
+
+      recalculateAllStats();
+      saveLocalState();
+      closeModal('modalAddSub');
+      renderPitchAndTactics();
+    }
+
+    function deleteSub(subIdx) {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      game.periods[selectedPeriod].subs.splice(subIdx, 1);
+
+      recalculateAllStats();
+      saveLocalState();
+      renderPitchAndTactics();
+    }
+
+    // --- GAME TIME SUMMARY MODAL ---
+    function openGameTimeSummaryModal() {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      const container = document.getElementById('gameTimeSummaryList');
+      container.innerHTML = '';
+
+      const sortedRoster = [...appData.roster].sort((a,b) => a.num - b.num);
+
+      sortedRoster.forEach(p => {
+        const mins = calculateGameMinutesForPlayer(game, p.id);
+        
+        const row = document.createElement('div');
+        row.className = "bg-slate-800/80 border border-slate-700/60 p-2.5 rounded-xl flex items-center justify-between";
+        row.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-slate-900 font-bold text-amber-400 text-xs flex items-center justify-center border border-slate-700">
+              ${p.num}
+            </span>
+            <span class="font-bold text-xs text-white">${p.name}</span>
+          </div>
+          <div class="font-extrabold text-xs ${mins > 0 ? 'text-amber-400' : 'text-slate-500'}">
+            ${mins} Min.
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      document.getElementById('modalGameTimeSummary').classList.remove('hidden');
+    }
+
+    // --- SCORE & SCORERS MODAL ---
+    function openScoreModal() {
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      document.getElementById('scoreHomeInput').value = game.scoreHome || 0;
+      document.getElementById('scoreAwayInput').value = game.scoreAway || 0;
+
+      const container = document.getElementById('scorersContainer');
+      container.innerHTML = '';
+
+      if (game.goalscorers && game.goalscorers.length > 0) {
+        game.goalscorers.forEach(sc => addScorerRow(sc.playerId, sc.count));
+      } else {
+        addScorerRow();
+      }
+
+      document.getElementById('modalScore').classList.remove('hidden');
+    }
+
+    function addScorerRow(selectedPlayerId = '', count = 1) {
+      const container = document.getElementById('scorersContainer');
+      const row = document.createElement('div');
+      row.className = "scorer-row flex items-center gap-2";
+
+      let options = `<option value="">-- Spieler wählen --</option>`;
+      const sorted = [...appData.roster].sort((a,b) => a.num - b.num);
+      sorted.forEach(p => {
+        options += `<option value="${p.id}" ${p.id === selectedPlayerId ? 'selected' : ''}>#${p.num} ${p.name}</option>`;
+      });
+
+      row.innerHTML = `
+        <select class="scorer-player-select flex-1 bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs font-semibold text-white">
+          ${options}
+        </select>
+        <input type="number" min="1" max="10" value="${count}" class="scorer-count-input w-16 bg-slate-800 border border-slate-700 rounded-xl p-2 text-xs text-center font-bold text-amber-400">
+        <button type="button" onclick="this.parentElement.remove()" class="text-slate-500 hover:text-red-400 p-1">
+          <i data-lucide="minus-circle" class="w-4 h-4"></i>
+        </button>
+      `;
+      container.appendChild(row);
+      lucide.createIcons();
+    }
+
+    function handleSaveScoreAndGoals(e) {
+      e.preventDefault();
+      const game = appData.games.find(g => g.id === selectedGameId);
+      if (!game) return;
+
+      game.scoreHome = parseInt(document.getElementById('scoreHomeInput').value) || 0;
+      game.scoreAway = parseInt(document.getElementById('scoreAwayInput').value) || 0;
+
+      const scorers = [];
+      document.querySelectorAll('.scorer-row').forEach(row => {
+        const pId = row.querySelector('.scorer-player-select').value;
+        const cnt = parseInt(row.querySelector('.scorer-count-input').value) || 1;
+        if (pId) {
+          scorers.push({ playerId: pId, count: cnt });
+        }
+      });
+
+      game.goalscorers = scorers;
+
+      recalculateAllStats();
+      saveLocalState();
+      closeModal('modalScore');
+      openGameTactics(selectedGameId);
+    }
+
+    function openSyncModal() {
+      document.getElementById('modalSync').classList.remove('hidden');
+    }
+
+
+    // ==========================================
+    // 7. STATS VIEW RENDER
+    // ==========================================
+    function renderStats() {
+      // Scorers List
+      const scorersContainer = document.getElementById('topScorersList');
+      scorersContainer.innerHTML = '';
+
+      const topScorers = [...appData.roster].filter(p => p.goals > 0).sort((a,b) => b.goals - a.goals);
+      if (topScorers.length === 0) {
+        scorersContainer.innerHTML = `<p class="text-xs text-slate-500 italic">Noch keine Tore eingetragen.</p>`;
+      } else {
+        topScorers.forEach(p => {
+          const row = document.createElement('div');
+          row.className = "flex items-center justify-between bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50";
+          row.innerHTML = `
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded-lg bg-slate-900 font-bold text-amber-400 text-xs flex items-center justify-center border border-slate-700">
+                ${p.num}
+              </span>
+              <span class="font-bold text-xs text-white">${p.name} <span class="text-[10px] text-slate-400">(${p.club})</span></span>
+            </div>
+            <span class="font-black text-xs text-emerald-400">${p.goals} Tor${p.goals > 1 ? 'e' : ''}</span>
+          `;
+          scorersContainer.appendChild(row);
+        });
+      }
+
+      // Minutes List
+      const minutesContainer = document.getElementById('topMinutesList');
+      minutesContainer.innerHTML = '';
+
+      const topMinutes = [...appData.roster].sort((a,b) => b.minutes - a.minutes);
+      topMinutes.forEach(p => {
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50";
+        row.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-slate-900 font-bold text-amber-400 text-xs flex items-center justify-center border border-slate-700">
+              ${p.num}
+            </span>
+            <span class="font-bold text-xs text-white">${p.name} <span class="text-[10px] text-slate-400">(${p.club})</span></span>
+          </div>
+          <span class="font-black text-xs text-amber-400">${p.minutes} Min</span>
+        `;
+        minutesContainer.appendChild(row);
+      });
+    }
+
+
+    // ==========================================
+    // 8. DATA IMPORT / EXPORT & RESET
+    // ==========================================
+    function exportDataJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `U11_Manager_Backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function triggerImportJSON() {
+      document.getElementById('jsonFileInput').click();
+    }
+
+    function importDataJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.roster && parsed.games) {
+            appData = parsed;
+            recalculateAllStats();
+            saveLocalState();
+            renderAll();
+            alert("Daten erfolgreich importiert!");
+          } else {
+            alert("Ungültiges Datei-Format!");
+          }
+        } catch(err) {
+          alert("Fehler beim Lesen der JSON-Datei!");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetToDefaultDataPrompt() {
+      if (confirm("Möchtest du wirklich alle Spieldaten löschen und auf die Standard-Kaderdaten zurücksetzen?")) {
+        appData = {
+          roster: DEFAULT_ROSTER,
+          games: DEFAULT_GAMES
+        };
+        recalculateAllStats();
+        saveLocalState();
+        renderAll();
+        alert("Daten zurückgesetzt.");
+      }
+    }
+  </script>
+
+  <!-- Optional Firebase SDK directly loaded for Realtime Sync -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</body>
+</html>
